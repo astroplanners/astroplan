@@ -16,7 +16,7 @@ import warnings
 # Third-party
 from astropy.time import Time
 import astropy.units as u
-from astropy.coordinates import get_body, get_sun, Galactic, SkyCoord
+from astropy.coordinates import Galactic, SkyCoord
 from astropy import table
 
 import numpy as np
@@ -27,6 +27,8 @@ from .moon import moon_illumination
 from .utils import time_grid_from_range
 from .target import get_skycoord
 from .exceptions import MissingConstraintWarning
+from .observer import _make_cache_key
+
 
 __all__ = ["AltitudeConstraint", "AirmassConstraint", "AtNightConstraint",
            "is_observable", "is_always_observable", "time_grid_from_range",
@@ -42,47 +44,6 @@ _current_year_time_range = Time(  # needed for backward compatibility
     [str(_current_year) + '-01-01',
      str(_current_year) + '-12-31']
 )
-
-
-def _make_cache_key(times, targets):
-    """
-    Make a unique key to reference this combination of ``times`` and ``targets``.
-
-    Often, we wish to store expensive calculations for a combination of
-    ``targets`` and ``times`` in a cache on an ``observer``` object. This
-    routine will provide an appropriate, hashable, key to store these
-    calculations in a dictionary.
-
-    Parameters
-    ----------
-    times : `~astropy.time.Time`
-        Array of times on which to test the constraint.
-    targets : `~astropy.coordinates.SkyCoord`
-        Target or list of targets.
-
-    Returns
-    -------
-    cache_key : tuple
-        A hashable tuple for use as a cache key
-    """
-    # make a tuple from times
-    try:
-        timekey = tuple(times.jd) + times.shape
-    except BaseException:        # must be scalar
-        timekey = (times.jd,)
-    # make hashable thing from targets coords
-    try:
-        if hasattr(targets, 'frame'):
-            # treat as a SkyCoord object. Accessing the longitude
-            # attribute of the frame data should be unique and is
-            # quicker than accessing the ra attribute.
-            targkey = tuple(targets.frame.data.lon.value.ravel()) + targets.shape
-        else:
-            # assume targets is a string.
-            targkey = (targets,)
-    except BaseException:
-        targkey = (targets.frame.data.lon,)
-    return timekey + targkey
 
 
 def _get_altaz(times, observer, targets, force_zero_pressure=False):
@@ -471,7 +432,7 @@ class AtNightConstraint(Constraint):
                     observer.pressure = 0
 
                 # find solar altitude at these times
-                altaz = observer.altaz(times, get_sun(times))
+                altaz = observer.altaz(times, observer.get_body("sun", times))
                 altitude = altaz.alt
                 # cache the altitude
                 observer._altaz_cache[aakey] = dict(times=times,
@@ -549,7 +510,7 @@ class SunSeparationConstraint(Constraint):
         # centred frame, so the separation is as-seen
         # by the observer.
         # 'get_sun' returns ICRS coords.
-        sun = get_body('sun', times, location=observer.location)
+        sun = observer.get_body('sun', times)
         targets = get_skycoord(targets)
         solar_separation = sun.separation(targets)
 
@@ -591,7 +552,7 @@ class MoonSeparationConstraint(Constraint):
         self.ephemeris = ephemeris
 
     def compute_constraint(self, times, observer, targets):
-        moon = get_body("moon", times, location=observer.location, ephemeris=self.ephemeris)
+        moon = observer.get_body("moon", times, ephemeris=self.ephemeris)
         # note to future editors - the order matters here
         # moon.separation(targets) is NOT the same as targets.separation(moon)
         # the former calculates the separation in the frame of the moon coord
