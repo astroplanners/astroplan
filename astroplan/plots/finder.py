@@ -14,7 +14,7 @@ __all__ = ['plot_finder_image']
 
 @u.quantity_input(fov_radius=u.deg)
 def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
-                      log=False, ax=None, grid=False, reticle=False,
+                      log=False, ax=None, reticle=False,
                       style_kwargs=None, reticle_style_kwargs=None):
     """
     Plot survey image centered on ``target``.
@@ -47,9 +47,6 @@ def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
     ax : `~matplotlib.axes.Axes` or None, optional.
         The `~matplotlib.axes.Axes` object to be drawn on.
         If None, uses the current `~matplotlib.axes.Axes`.
-
-    grid : bool, optional.
-        Grid is drawn if `True`. `False` by default.
 
     reticle : bool, optional
         Draw reticle on the center of the FOV if `True`. Default is `False`.
@@ -86,7 +83,7 @@ def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
     target_name = None if isinstance(target, SkyCoord) else target.name
 
     hdu = SkyView.get_images(position=position, coordinates=coordinates,
-                             survey=survey, radius=fov_radius, grid=grid)[0][0]
+                             survey=survey, radius=fov_radius)[0][0]
     wcs = WCS(hdu.header)
 
     # Set up axes & plot styles if needed.
