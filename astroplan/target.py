@@ -4,12 +4,26 @@ from __future__ import (absolute_import, division, print_function,
 
 # Standard library
 from abc import ABCMeta
+import warnings
 
 # Third-party
 import astropy.units as u
-from astropy.coordinates import SkyCoord, ICRS, UnitSphericalRepresentation
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, ICRS, UnitSphericalRepresentation, AltAz, EarthLocation
+try:
+    from sgp4.io import twoline2rv
+    from sgp4.earth_gravity import wgs84 as sgp4_wgs84
+    from skyfield.api import load, wgs84
+    from skyfield.sgp4lib import EarthSatellite
+    skyfield_available = True
+except ImportError:
+    skyfield_available = False
 
-__all__ = ["Target", "FixedTarget", "NonFixedTarget"]
+# Package
+from .exceptions import InvalidTLEDataWarning
+
+
+__all__ = ["Target", "FixedTarget", "NonFixedTarget", "TLETarget"]
 
 # Docstring code examples include printed SkyCoords, but the format changed
 # in astropy 1.3. Thus the doctest needs astropy >=1.3 and this is the
@@ -190,31 +204,267 @@ class NonFixedTarget(Target):
     """
 
 
-def get_skycoord(targets):
+class TLETarget(Target):
+    """
+    A target defined by TLE (Two-Line Element set) for satellites.
+    """
+    def __init__(self, line1, line2, name=None, observer=None, skip_tle_check=False):
+        """
+        Parameters
+        ----------
+        line1 : str
+            The first line of the TLE set
+
+        line2 : str
+            The second line of the TLE set
+
+        name : str, optional
+            Name of the target, used for plotting and representing the target
+            as a string
+
+        observer : `~astropy.coordinates.EarthLocation`, `~astroplan.Observer`, optional
+            The location of observer.
+            If `None`, the observer is assumed to be at sea level at the equator.
+
+        skip_tle_check : bool, optional
+            Whether to skip TLE validation
+        """
+        if not skyfield_available:
+            raise ImportError("Please install the skyfield package to use the TLETarget class.")
+
+        if not skip_tle_check:
+            twoline2rv(line1, line2, sgp4_wgs84)    # Raises ValueError if TLE is invalid
+
+        self.name = name
+        self.satellite = EarthSatellite(line1, line2, name, load.timescale())
+
+        if observer is None:
+            self.observer = wgs84.latlon(0, 0, 0)
+        else:
+            observer = getattr(observer, 'location', observer)
+            longitude, latitude, height = observer.to_geodetic()
+            self.observer = wgs84.latlon(latitude.to(u.deg).value,
+                                         longitude.to(u.deg).value,
+                                         height.to(u.m).value)
+
+    @classmethod
+    def from_string(cls, tle_string, name=None, *args, **kwargs):
+        """
+        Creates a TLETarget instance from a complete TLE string.
+
+        Parameters
+        ----------
+        tle_string : str
+            String to be parsed, expected to contain 2 or 3 newline-separated lines.
+
+        name : str, optional
+            Name of the target. If not provided and the tle_string contains 3 lines,
+            the first line will be used as the name.
+
+        args, kwargs : tuple, dict, optional
+            Additional arguments and keyword arguments to be passed to the TLETarget constructor.
+        """
+        lines = tle_string.strip().splitlines()
+
+        if len(lines) not in (2, 3):
+            raise ValueError(f"Expected TLE string to contain 2 or 3 lines, got {len(lines)}")
+
+        if len(lines) == 3:
+            line1, line2, name = lines[1], lines[2], name or lines[0]
+        else:   # len(lines) == 2
+            line1, line2 = lines
+        return cls(line1, line2, name, *args, **kwargs)
+
+    @property
+    def ra(self):
+        raise NotImplementedError("Compute satellite RA at a specific time with self.coord(time)")
+
+    @property
+    def dec(self):
+        raise NotImplementedError("Compute satellite RA at a specific time with self.coord(time)")
+
+    def _compute_topocentric(self, time=None):
+        """
+        Compute the topocentric coordinates (relative to observer) at a particular time.
+
+        Parameters
+        ----------
+        time : `~astropy.time.Time`, optional
+            The time(s) to use in the calculation.
+
+        Returns
+        -------
+        topocentric : `skyfield.positionlib.ICRF`
+            The topocentric object representing the relative coordinates of the target.
+        """
+        if time is None:
+            time = Time.now()
+        ts = load.timescale()
+        t = ts.from_astropy(time)
+
+        topocentric = (self.satellite - self.observer).at(t)
+
+        # Check for invalid TLE data. A non-None usually message means the computation went beyond
+        # the physically sensible point. Details:
+        # https://rhodesmill.org/skyfield/earth-satellites.html#detecting-propagation-errors
+        message = topocentric.message
+        if (
+            (message is not None and not isinstance(message, list)) or
+            (isinstance(message, list) and not all(x is None for x in message))
+        ):
+            warnings.warn(f"Invalid TLE Data: {message}", InvalidTLEDataWarning)
+
+        return topocentric
+
+    def coord(self, time=None):
+        """
+        Get the coordinates of the target at a particular time.
+
+        Parameters
+        ----------
+        time : `~astropy.time.Time`, optional
+            The time(s) to use in the calculation.
+
+        Returns
+        -------
+        coord : `~astropy.coordinates.SkyCoord`
+            A single SkyCoord object, which may be non-scalar, representing the target's
+            RA/Dec coordinates at the specified time(s). Might return np.nan and output a
+            warning for times where the elements stop making physical sense.
+        """
+        topocentric = self._compute_topocentric(time)
+        ra, dec, distance = topocentric.radec()
+        # No distance, in SkyCoord, distance is from frame origin, but here, it's from observer.
+        return SkyCoord(ra.hours*u.hourangle, dec.degrees*u.deg, obstime=time, frame='icrs')
+
+    def altaz(self, time=None):
+        """
+        Get the altitude and azimuth of the target at a particular time.
+
+        Parameters
+        ----------
+        time : `~astropy.time.Time`, optional
+            The time(s) to use in the calculation.
+
+        Returns
+        -------
+        altaz_coord : `~astropy.coordinates.SkyCoord`
+            SkyCoord object representing the target's altitude and azimuth at the specified time(s)
+        """
+        topocentric = self._compute_topocentric(time)
+        alt, az, distance = topocentric.altaz()
+
+        earth_location = EarthLocation(lat=self.observer.latitude.degrees*u.deg,
+                                       lon=self.observer.longitude.degrees*u.deg,
+                                       height=self.observer.elevation.m*u.m)
+
+        altaz = AltAz(alt=alt.degrees*u.deg, az=az.degrees*u.deg,
+                      obstime=time, location=earth_location)
+        return SkyCoord(altaz)
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} "{self.name}">'
+
+    def __str__(self):
+        return self.name
+
+
+def repeat_skycoord(coord, times):
+    """
+    Repeats the coordinates of a SkyCoord object 'times.size' number of times.
+
+    Parameters
+    ----------
+    coord : `~astropy.coordinates.SkyCoord`
+        The original SkyCoord object whose coordinates need to be repeated.
+
+    times : `~astropy.time.Time`
+        The size of times determines the number of times the coordinates should be repeated.
+
+    Returns
+    --------
+    SkyCoord : `~astropy.coordinates.SkyCoord`
+        A new SkyCoord object with the coordinates of the original object
+        repeated 'times.size' number of times. If the SkyCoord object is scalar
+        or 'times' is None or a scalar, this function returns the
+        original SkyCoord object.
+    """
+    if coord.size != 1 or times is None or times.size == 1:
+        return coord
+    return SkyCoord(
+        ra=coord.ra.repeat(times.size),
+        dec=coord.dec.repeat(times.size),
+        distance=None if coord.distance.unit is u.one else coord.distance.repeat(times.size),
+        frame=coord.frame,
+        obstime=times
+    )
+
+
+def get_skycoord(targets, time=None, backwards_compatible=True):
     """
     Return an `~astropy.coordinates.SkyCoord` object.
 
     When performing calculations it is usually most efficient to have
     a single `~astropy.coordinates.SkyCoord` object, rather than a
-    list of `FixedTarget` or `~astropy.coordinates.SkyCoord` objects.
+    list of `Target` or `~astropy.coordinates.SkyCoord` objects.
 
     This is a convenience routine to do that.
 
     Parameters
     -----------
-    targets : list, `~astropy.coordinates.SkyCoord`, `Fixedtarget`
+    targets : list, `~astropy.coordinates.SkyCoord`, `Target`
         either a single target or a list of targets
+
+    time : `~astropy.time.Time`, optional
+        The time(s) to use in the calculation.
+
+    backwards_compatible : bool, optional
+        Controls output format when FixedTarget or SkyCoord targets are used with a time argument.
+        If False, it will return (targets x times), where all coordinates per target are the same.
+        If True, it will return one coordinate per target (default is True).
 
     Returns
     --------
     coord : `~astropy.coordinates.SkyCoord`
         a single SkyCoord object, which may be non-scalar
     """
-    if not isinstance(targets, list):
-        return getattr(targets, 'coord', targets)
 
-    # get the SkyCoord object itself
-    coords = [getattr(target, 'coord', target) for target in targets]
+    # Note on backwards_compatible:
+    # Method always returns (targets x times) with TLETarget in targets, as RA/Dec changes with time
+    # Do we want to be 100% backwards compatible, or do we prefer consistent output,
+    # for FixedTarget or SkyCoord targets combined with multiple times?
+    # backwards_compatible = True will continue to return one coordinate per target
+    # backwards_compatible = False, returns (targets x times) with identical coordinates per target
+
+    # Early exit for single target
+    if not isinstance(targets, list):
+        if isinstance(targets, TLETarget):
+            return targets.coord(time)
+        else:
+            if backwards_compatible:
+                return getattr(targets, 'coord', targets)
+            else:
+                return repeat_skycoord(getattr(targets, 'coord', targets), time)
+
+    # Identify if any of the targets is not FixedTarget or SkyCoord
+    has_non_fixed_target = any(
+        not isinstance(target, (FixedTarget, SkyCoord))
+        for target in targets
+    )
+
+    # Get the SkyCoord object itself
+    coords = [
+        target.coord(time) if isinstance(target, TLETarget)
+        else getattr(target, 'coord', target)
+        for target in targets
+    ]
+
+    # Fill time dimension for SkyCoords that only have a single coordinate
+    if (
+        (backwards_compatible and has_non_fixed_target or not backwards_compatible) and
+        time is not None
+    ):
+        coords = [repeat_skycoord(coord, time) for coord in coords]
 
     # are all SkyCoordinate's in equivalent frames? If not, convert to ICRS
     convert_to_icrs = not all(

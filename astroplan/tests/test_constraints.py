@@ -447,7 +447,17 @@ def test_caches_shapes():
     targets = get_skycoord([m31, ippeg, htcas])
     observer = Observer.at_site('lapalma')
     ac = AltitudeConstraint(min=30*u.deg)
-    assert ac(observer, targets, times, grid_times_targets=True).shape == (3, 3)
+
+    # When time and targets are the same size,
+    # they're broadcastable and grid_times_targets is ignored
+    assert ac(observer, targets, times, grid_times_targets=True).shape == (3,)
+    targets = get_skycoord([m31, ippeg])
+    assert ac(observer, targets, times, grid_times_targets=True).shape == (2, 3)
+
+    # When time and targets don't have the same size this fails with grid_times_targets=False
+    with pytest.raises(ValueError):
+        ac(observer, targets, times, grid_times_targets=False)
+    targets = get_skycoord([m31, ippeg, htcas])
     assert ac(observer, targets, times, grid_times_targets=False).shape == (3,)
 
 

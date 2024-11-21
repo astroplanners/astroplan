@@ -17,7 +17,7 @@ from astropy.table import Table
 
 from .utils import time_grid_from_range, stride_array
 from .constraints import AltitudeConstraint
-from .target import get_skycoord
+from .target import get_skycoord, FixedTarget, TLETarget
 
 __all__ = ['ObservingBlock', 'TransitionBlock', 'Schedule', 'Slot',
            'Scheduler', 'SequentialScheduler', 'PriorityScheduler',
@@ -121,7 +121,6 @@ class Scorer(object):
         self.observer = observer
         self.schedule = schedule
         self.global_constraints = global_constraints
-        self.targets = get_skycoord([block.target for block in self.blocks])
 
     def create_score_array(self, time_resolution=1*u.minute):
         """
@@ -142,6 +141,7 @@ class Scorer(object):
         start = self.schedule.start_time
         end = self.schedule.end_time
         times = time_grid_from_range((start, end), time_resolution)
+        targets = get_skycoord([block.target for block in self.blocks], times)
         score_array = np.ones((len(self.blocks), len(times)))
         for i, block in enumerate(self.blocks):
             # TODO: change the default constraints from None to []
@@ -151,7 +151,7 @@ class Scorer(object):
                                                times=times)
                     score_array[i] *= applied_score
         for constraint in self.global_constraints:
-            score_array *= constraint(self.observer, self.targets, times,
+            score_array *= constraint(self.observer, targets, times,
                                       grid_times_targets=True)
         return score_array
 
@@ -273,25 +273,33 @@ class Schedule(object):
         start_times = []
         end_times = []
         durations = []
-        ra = []
-        dec = []
+        coordiante_type = []
+        coordinate_info = []
         config = []
         for slot in self.slots:
             if hasattr(slot.block, 'target'):
                 start_times.append(slot.start.iso)
                 end_times.append(slot.end.iso)
-                durations.append(slot.duration.to(u.minute).value)
-                target_names.append(slot.block.target.name)
-                ra.append(u.Quantity(slot.block.target.ra))
-                dec.append(u.Quantity(slot.block.target.dec))
+                durations.append('{:.4f}'.format(slot.duration.to(u.minute).value))
+                target = slot.block.target
+                target_names.append(target.name)
+                if isinstance(target, FixedTarget):
+                    coordiante_type.append("RA/Dec")
+                    coordinate_info.append(target.coord.to_string('hmsdms'))
+                elif isinstance(target, TLETarget):
+                    coordiante_type.append("TLE")
+                    coordinate_info.append(
+                        f"#{target.satellite.model.satnum} "
+                        f"epoch {target.satellite.epoch.utc_strftime(format='%Y-%m-%d %H:%M:%S')}"
+                    )
                 config.append(slot.block.configuration)
             elif show_transitions and slot.block:
                 start_times.append(slot.start.iso)
                 end_times.append(slot.end.iso)
-                durations.append(slot.duration.to(u.minute).value)
+                durations.append('{:.4f}'.format(slot.duration.to(u.minute).value))
                 target_names.append('TransitionBlock')
-                ra.append('')
-                dec.append('')
+                coordiante_type.append('')
+                coordinate_info.append('')
                 changes = list(slot.block.components.keys())
                 if 'slew_time' in changes:
                     changes.remove('slew_time')
@@ -299,14 +307,15 @@ class Schedule(object):
             elif slot.block is None and show_unused:
                 start_times.append(slot.start.iso)
                 end_times.append(slot.end.iso)
-                durations.append(slot.duration.to(u.minute).value)
+                durations.append('{:.4f}'.format(slot.duration.to(u.minute).value))
                 target_names.append('Unused Time')
-                ra.append('')
-                dec.append('')
+                coordiante_type.append('')
+                coordinate_info.append('')
                 config.append('')
-        return Table([target_names, start_times, end_times, durations, ra, dec, config],
+        return Table([target_names, start_times, end_times,
+                      durations, coordiante_type, coordinate_info, config],
                      names=('target', 'start time (UTC)', 'end time (UTC)',
-                            'duration (minutes)', 'ra', 'dec', 'configuration'))
+                            'duration (min)', 'type', 'coordinates/info', 'configuration'))
 
     def new_slots(self, slot_index, start_time, end_time):
         """
@@ -999,9 +1008,8 @@ class Transitioner(object):
             # use the constraints cache for now, but should move that machinery
             # to observer
             from .constraints import _get_altaz
-            from .target import get_skycoord
             if oldblock.target != newblock.target:
-                targets = get_skycoord([oldblock.target, newblock.target])
+                targets = get_skycoord([oldblock.target, newblock.target], start_time)
                 aaz = _get_altaz(start_time, observer, targets)['altaz']
                 sep = aaz[0].separation(aaz[1])
                 if sep/self.slew_rate > 1 * u.second:

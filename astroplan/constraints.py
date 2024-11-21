@@ -258,16 +258,17 @@ class Constraint(object):
                                          time_resolution=time_grid_resolution)
 
         if grid_times_targets:
-            targets = get_skycoord(targets)
+            targets = get_skycoord(targets, times)
             # TODO: these broadcasting operations are relatively slow
             # but there is potential for huge speedup if the end user
             # disables gridding and re-shapes the coords themselves
             # prior to evaluating multiple constraints.
-            if targets.isscalar:
-                # ensure we have a (1, 1) shape coord
-                targets = SkyCoord(np.tile(targets, 1))[:, np.newaxis]
-            else:
-                targets = targets[..., np.newaxis]
+            if not observer._is_broadcastable(targets.shape, times.shape):
+                if targets.isscalar:
+                    # ensure we have a (1, 1) shape coord
+                    targets = SkyCoord(np.tile(targets, 1))[:, np.newaxis]
+                else:
+                    targets = targets[..., np.newaxis]
         times, targets = observer._preprocess_inputs(times, targets, grid_times_targets=False)
         result = self.compute_constraint(times, observer, targets)
 

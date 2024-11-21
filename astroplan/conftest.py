@@ -41,6 +41,7 @@ try:
     PYTEST_HEADER_MODULES['pyephem'] = 'ephem'
     PYTEST_HEADER_MODULES['matplotlib'] = 'matplotlib'
     PYTEST_HEADER_MODULES['pytest-mpl'] = 'pytest_mpl'
+    PYTEST_HEADER_MODULES['skyfield'] = 'skyfield'
     del PYTEST_HEADER_MODULES['h5py']
 except KeyError:
     pass

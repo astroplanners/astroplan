@@ -516,8 +516,8 @@ class Observer(object):
             return time, None
 
         # convert any kind of target argument to non-scalar SkyCoord
-        target = get_skycoord(target)
-        if grid_times_targets:
+        target = get_skycoord(target, time)
+        if grid_times_targets and not self._is_broadcastable(target.shape, time.shape):
             if target.isscalar:
                 # ensure we have a (1, 1) shape coord
                 target = SkyCoord(np.tile(target, 1))[:, np.newaxis]
