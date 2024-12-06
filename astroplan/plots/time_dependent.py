@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import copy
+from xmlrpc.client import boolean
 import numpy as np
 import operator
 import astropy.units as u
@@ -10,6 +11,7 @@ import pytz
 
 from ..exceptions import PlotWarning
 from ..utils import _set_mpl_style_sheet
+from ..constraints import Constraint
 
 __all__ = ['plot_airmass', 'plot_schedule_airmass', 'plot_parallactic',
            'plot_altitude']
@@ -49,7 +51,8 @@ def _has_twin(ax):
 def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
                  style_sheet=None, brightness_shading=False,
                  altitude_yaxis=False, min_airmass=1.0, min_region=None,
-                 max_airmass=3.0, max_region=None, use_local_tz=False):
+                 max_airmass=3.0, max_region=None, use_local_tz=False,
+                 constraints=None):
     r"""
     Plots airmass as a function of time for a given target.
 
@@ -124,6 +127,10 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
     use_local_tz : bool
         If the time is specified in a local timezone, the time will be plotted
         in that timezone.
+    
+    constraints : Constraint or list of Constraint objects (optional)
+        If a list of boolean constraints is provided, the objects will have
+        blackened curves outside the constraints.
 
     Returns
     -------
@@ -177,6 +184,23 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
 
     if not isinstance(targets, Sequence):
         targets = [targets]
+    
+    # Firstly, check that the constraints are valid if any.
+    if constraints is not None:
+        if isinstance(constraints, Constraint):
+            constraints = [constraints]
+    
+        assert isinstance(constraints, (list, tuple, np.ndarray)), "constraints must be an array-like object or a single Constraint instance."
+        for cons in constraints:
+            assert isinstance(cons, Constraint), "All constraint objects must be Constraints"
+
+            # Make sure they're boolean
+            assert hasattr(cons, 'boolean_constraint'), "Each constraints element must have the 'boolean_constraint attribute."
+            assert cons.boolean_constraint, "Cannot work with non-boolean constraints."
+            # Then make sure they're not some weird user-generated constraint. 
+            assert hasattr(cons, 'compute_constraint'), "Constraints must have a 'compute_constraint' method."
+            
+
 
     for target in targets:
         # Calculate airmass
@@ -192,6 +216,17 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
 
         # Plot data (against timezone-offset time)
         ax.plot_date(timetoplot.plot_date, masked_airmass, label=target_name, **style_kwargs)
+
+        # Plot black curves for where the target is outside constraints
+        if constraints:
+            cons_mask = np.ones(len(airmass), dtype=bool)
+            for cons in constraints:
+                cons_mask &= cons(observer, target, time_ut)
+
+            # Handle discontinuous curves:
+            time_vals = np.where((~cons_mask)&(airmass>1),timetoplot.plot_date, np.nan)
+            am_vals = np.where((~cons_mask)&(airmass>1), airmass, np.nan)
+            ax.plot_date(time_vals, am_vals, "k", lw=3)
 
     # Format the time axis
     xlo, xhi = (timetoplot[0]), (timetoplot[-1])
