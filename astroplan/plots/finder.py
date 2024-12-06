@@ -13,7 +13,9 @@ __all__ = ['plot_finder_image']
 @u.quantity_input(fov_radius=u.deg)
 def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
                       log=False, ax=None, grid=False, reticle=False,
-                      style_kwargs=None, reticle_style_kwargs=None):
+                      style_kwargs=None, reticle_style_kwargs=None,
+                      skyview_kwargs={}
+                     ):
     """
     Plot survey image centered on ``target``.
 
@@ -60,6 +62,11 @@ def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
         A dictionary of keywords passed into `~matplotlib.pyplot.axvline` and
         `~matplotlib.pyplot.axhline` to set reticle style.
 
+    skyview_kwargs : dict or `None`, optional.
+        A dictionary of keywords passed into
+        `~astroquery.skyview.SkyView.get_images` to set parameters of the
+        retrieved image.
+
     Returns
     -------
     ax : `~matplotlib.axes.Axes`
@@ -84,7 +91,8 @@ def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
     target_name = None if isinstance(target, SkyCoord) else target.name
 
     hdu = SkyView.get_images(position=position, coordinates=coordinates,
-                             survey=survey, radius=fov_radius, grid=grid)[0][0]
+                             survey=survey, radius=fov_radius,
+                             **skyview_kwargs)[0][0]
     wcs = WCS(hdu.header)
 
     # Set up axes & plot styles if needed.
