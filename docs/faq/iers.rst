@@ -107,9 +107,9 @@ astropy's IERS machinery:
     fig, ax = plt.subplots(figsize=(10,8))
     ax.axhline(0, color='gray', ls='--', lw=2)
 
-    ax.plot_date(time_range.plot_date,
+    ax.plot(time_range.datetime64,
                  DUT1_a, '-', lw=2, label='IERS Bulletin A + extrapolation')
-    ax.plot_date(time_range.plot_date[measurements_from_b],
+    ax.plot(time_range.datetime64[measurements_from_b],
                  DUT1_b[measurements_from_b], 'r--', lw=2, label='IERS Bulletin B')
     ax.set(xlabel='Year', ylabel='UT1-UTC [seconds]')
     ax.legend(loc='upper right')

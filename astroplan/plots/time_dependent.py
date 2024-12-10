@@ -90,7 +90,7 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
         If None, uses the current ``Axes``.
 
     style_kwargs : dict or None, optional.
-        A dictionary of keywords passed into `~matplotlib.pyplot.plot_date`
+        A dictionary of keywords passed into `~matplotlib.pyplot.plot`
         to set plotting styles.
 
     style_sheet : dict or `None` (optional)
@@ -154,14 +154,15 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
     if 'lw' not in style_kwargs:
         style_kwargs.setdefault('linewidth', 1.5)
     if 'ls' not in style_kwargs and 'linestyle' not in style_kwargs:
-        style_kwargs.setdefault('fmt', '-')
+        style_kwargs.setdefault('linestyle', '-')
 
     if hasattr(time, 'utcoffset') and use_local_tz:
         tzoffset = time.utcoffset()
         tzname = time.tzname()
         tzinfo = time.tzinfo
     else:
-        tzoffset = 0
+        # Add units to tzoffset so time_ut+tzoffset does not cause warning
+        tzoffset = 0 * u.second
         tzname = 'UTC'
         tzinfo = None
     # Populate time window if needed.
@@ -191,11 +192,11 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
             target_name = ''
 
         # Plot data (against timezone-offset time)
-        ax.plot_date(timetoplot.plot_date, masked_airmass, label=target_name, **style_kwargs)
+        ax.plot(timetoplot.datetime64, masked_airmass, label=target_name, **style_kwargs)
 
     # Format the time axis
     xlo, xhi = (timetoplot[0]), (timetoplot[-1])
-    ax.set_xlim([xlo.plot_date, xhi.plot_date])
+    ax.set_xlim([xlo.datetime64, xhi.datetime64])
     date_formatter = dates.DateFormatter('%H:%M')
     ax.xaxis.set_major_formatter(date_formatter)
     plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
@@ -318,7 +319,7 @@ def plot_altitude(targets, observer, time, ax=None, style_kwargs=None,
         If None, uses the current ``Axes``.
 
     style_kwargs : dict or None, optional.
-        A dictionary of keywords passed into `~matplotlib.pyplot.plot_date`
+        A dictionary of keywords passed into `~matplotlib.pyplot.plot`
         to set plotting styles.
 
     style_sheet : dict or `None` (optional)
@@ -367,7 +368,7 @@ def plot_altitude(targets, observer, time, ax=None, style_kwargs=None,
     if style_kwargs is None:
         style_kwargs = {}
     style_kwargs = dict(style_kwargs)
-    if 'ls' not in style_kwargs and 'fmt' not in style_kwargs:
+    if 'ls' not in style_kwargs and 'linestyle' not in style_kwargs:
         style_kwargs.setdefault('linestyle', '-')
     if 'lw' not in style_kwargs:
         style_kwargs.setdefault('linewidth', 1.5)
@@ -397,10 +398,10 @@ def plot_altitude(targets, observer, time, ax=None, style_kwargs=None,
             target_name = ''
 
         # Plot data
-        ax.plot_date(time.plot_date, masked_altitude, label=target_name, **style_kwargs)
+        ax.plot(time.datetime64, masked_altitude, label=target_name, **style_kwargs)
 
     # Format the time axis
-    ax.set_xlim([time[0].plot_date, time[-1].plot_date])
+    ax.set_xlim([time[0].datetime64, time[-1].datetime64])
     date_formatter = dates.DateFormatter('%H:%M')
     ax.xaxis.set_major_formatter(date_formatter)
     plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
@@ -508,17 +509,17 @@ def plot_schedule_airmass(schedule, show_night=False):
             next_twilight = schedule.observer.twilight_morning_astronomical(
                 midnight, which='next')
 
-            plt.axvspan(previous_sunset.plot_date, next_sunrise.plot_date,
+            plt.axvspan(previous_sunset.datetime64, next_sunrise.datetime64,
                         facecolor='lightgrey', alpha=0.05)
-            plt.axvspan(previous_twilight.plot_date, next_twilight.plot_date,
+            plt.axvspan(previous_twilight.datetime64, next_twilight.datetime64,
                         facecolor='lightgrey', alpha=0.05)
 
     for block in blocks:
         if hasattr(block, 'target'):
-            plt.axvspan(block.start_time.plot_date, block.end_time.plot_date,
+            plt.axvspan(block.start_time.datetime64, block.end_time.datetime64,
                         fc=targ_to_color[block.target.name], lw=0, alpha=.6)
         else:
-            plt.axvspan(block.start_time.plot_date, block.end_time.plot_date,
+            plt.axvspan(block.start_time.datetime64, block.end_time.datetime64,
                         color='k')
     plt.axhline(3, color='k', label='Transitions')
     # TODO: make this output a `axes` object
@@ -565,7 +566,7 @@ def plot_parallactic(target, observer, time, ax=None, style_kwargs=None,
         If None, uses the current ``Axes``.
 
     style_kwargs : dict or None, optional.
-        A dictionary of keywords passed into `~matplotlib.pyplot.plot_date`
+        A dictionary of keywords passed into `~matplotlib.pyplot.plot`
         to set plotting styles.
 
     style_sheet : dict or `None` (optional)
@@ -593,8 +594,7 @@ def plot_parallactic(target, observer, time, ax=None, style_kwargs=None,
     if style_kwargs is None:
         style_kwargs = {}
     style_kwargs = dict(style_kwargs)
-    style_kwargs.setdefault('fmt', '-')
-    if 'ls' not in style_kwargs and 'fmt' not in style_kwargs:
+    if 'ls' not in style_kwargs and 'linestyle' not in style_kwargs:
         style_kwargs.setdefault('linestyle', '-')
 
     # Populate time window if needed.
@@ -619,7 +619,7 @@ def plot_parallactic(target, observer, time, ax=None, style_kwargs=None,
     style_kwargs.setdefault('label', target_name)
 
     # Plot data.
-    ax.plot_date(time.plot_date, p_angle, **style_kwargs)
+    ax.plot(time.datetime64, p_angle, **style_kwargs)
 
     # Format the time axis
     date_formatter = dates.DateFormatter('%H:%M')
