@@ -16,9 +16,11 @@ except ImportError:
 @pytest.mark.mpl_image_compare
 def test_image_example():
     import matplotlib.pyplot as plt
+
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     ax.plot([1, 2, 3])
+
     return fig
 
 
@@ -26,12 +28,14 @@ def test_image_example():
 @pytest.mark.skipif('not HAS_MATPLOTLIB')
 @pytest.mark.mpl_image_compare
 def test_timezone():
+    import datetime
+
+    import pytz
     from astropy import coordinates
     from astropy import units as u
-    from ..time_dependent import plot_airmass
-    from ... import Observer
-    import datetime
-    import pytz
+
+    from astroplan import Observer
+    from astroplan.plots.time_dependent import plot_airmass
 
     betelgeuse = coordinates.SkyCoord(88.79293899*u.deg, 7.407064*u.deg, frame='icrs')
     observer = Observer(coordinates.EarthLocation.of_site('subaru'))

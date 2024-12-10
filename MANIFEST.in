@@ -3,7 +3,6 @@ include README.rst
 include CHANGES.rst
 
 include pyproject.toml
-include setup.cfg
 
 recursive-include docs *
 recursive-include licenses *

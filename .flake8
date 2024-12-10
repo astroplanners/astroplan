@@ -1,0 +1,5 @@
+# flake8 does not support pyproject.toml (https://github.com/PyCQA/flake8/issues/234)
+
+[flake8]
+max-line-length = 100
+exclude = __init__.py

@@ -1,12 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import numpy as np
 import pytest
-
 from astropy.time import Time
 
-
-from ..utils import stride_array, time_grid_from_range
-
+from astroplan.utils import stride_array, time_grid_from_range
 
 arr10 = np.arange(10)
 

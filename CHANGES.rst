@@ -1,6 +1,9 @@
 0.11 (unreleased)
 -----------------
 
+- Minimum Python version is now 3.11. Also bumped minversion
+  of dependencies. [#605]
+
 0.10.1 (2024-08-13)
 -------------------
 

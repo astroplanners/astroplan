@@ -1,29 +1,26 @@
 import datetime as dt
 
-import numpy as np
 import astropy.units as u
-from astropy.time import Time
-from astropy.coordinates import Galactic, SkyCoord, get_sun, get_body
-from astropy.utils import minversion
+import numpy as np
 import pytest
+from astropy.coordinates import Galactic, SkyCoord, get_sun, get_body
+from astropy.time import Time
 
-from ..observer import Observer
-from ..target import FixedTarget, get_skycoord
-from ..constraints import (AltitudeConstraint, AirmassConstraint, AtNightConstraint,
-                           is_observable, is_always_observable, observability_table,
-                           time_grid_from_range,
-                           GalacticLatitudeConstraint,
-                           SunSeparationConstraint,
-                           MoonSeparationConstraint, MoonIlluminationConstraint,
-                           TimeConstraint, LocalTimeConstraint, months_observable,
-                           max_best_rescale, min_best_rescale, PhaseConstraint,
-                           PrimaryEclipseConstraint, SecondaryEclipseConstraint,
-                           is_event_observable)
-from ..periodic import EclipsingSystem
-from ..exceptions import MissingConstraintWarning
-
-
-APY_LT104 = not minversion('astropy', '1.0.4')
+from astroplan.constraints import (
+    AltitudeConstraint, AirmassConstraint, AtNightConstraint,
+    is_observable, is_always_observable, observability_table,
+    time_grid_from_range,
+    GalacticLatitudeConstraint,
+    SunSeparationConstraint,
+    MoonSeparationConstraint, MoonIlluminationConstraint,
+    TimeConstraint, LocalTimeConstraint, months_observable,
+    max_best_rescale, min_best_rescale, PhaseConstraint,
+    PrimaryEclipseConstraint, SecondaryEclipseConstraint,
+    is_event_observable)
+from astroplan.exceptions import MissingConstraintWarning
+from astroplan.observer import Observer
+from astroplan.periodic import EclipsingSystem
+from astroplan.target import FixedTarget, get_skycoord
 
 vega = FixedTarget(coord=SkyCoord(ra=279.23473479*u.deg, dec=38.78368896*u.deg),
                    name="Vega")
@@ -178,8 +175,6 @@ def test_galactic_plane_separation():
     assert np.all(is_constraint_met == [False, True, True])
 
 
-# in astropy before v1.0.4, a recursion error is triggered by this test
-@pytest.mark.skipif('APY_LT104')
 @pytest.mark.remote_data
 # astropy.coordinates.errors.NonRotationTransformationWarning
 @pytest.mark.filterwarnings("ignore")

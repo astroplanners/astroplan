@@ -6,7 +6,7 @@ from astropy.time import Time
 __all__ = ['PeriodicEvent', 'EclipsingSystem']
 
 
-class PeriodicEvent(object):
+class PeriodicEvent:
     """
     A periodic event defined by an epoch and period.
     """

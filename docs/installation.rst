@@ -9,14 +9,10 @@ Installation
 Requirements
 ============
 
-**astroplan** works on Linux, Mac OS X and Windows.
-It requires Python 3.7+ as well as numpy, astropy, and pytz.
+**astroplan** works on Linux, Mac OS X, and Windows.
+It requires Python 3.11+ as well as numpy, astropy, and pytz.
 Additional features are available when you install `Matplotlib`_
 and `astroquery`_.
-
-First-time Python users may want to consider an all-in-one Python installation
-package, such as the `Anaconda Python Distribution
-<http://continuum.io/downloads>`_ which provides all of the above dependencies.
 
 Installation
 ============
@@ -59,6 +55,6 @@ More
 ====
 
 astroplan follows `astropy <https://astropy.org>`__'s guidelines for affiliated packages--installation
-and testing for the two are quite similar! Please see astropy's
-`installation page <http://astropy.readthedocs.io/en/latest/install.html>`_
+and testing for the two are quite similar! Please see
+:ref:`astropy's installation page <astropy:installing-astropy>`
 for more information.

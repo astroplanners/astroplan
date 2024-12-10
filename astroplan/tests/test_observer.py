@@ -5,19 +5,19 @@ import datetime
 
 # Third-party
 import astropy.units as u
-from astropy.time import Time
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose
+import pytest
 import pytz
 from astropy.coordinates import (EarthLocation, Latitude, Longitude, SkyCoord,
                                  AltAz, Angle)
 from astropy.tests.helper import assert_quantity_allclose
+from astropy.time import Time
+from numpy.testing import assert_allclose
 
 # Package
-from ..observer import Observer
-from ..target import FixedTarget
-from ..exceptions import TargetAlwaysUpWarning, TargetNeverUpWarning
+from astroplan.observer import Observer
+from astroplan.target import FixedTarget
+from astroplan.exceptions import TargetAlwaysUpWarning, TargetNeverUpWarning
 
 
 def test_Observer_constructor_location():

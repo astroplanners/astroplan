@@ -1,12 +1,6 @@
 astroplan
 =========
 
-Observation planning package for astronomers
-
-* Code: https://github.com/astropy/astroplan
-* Docs: https://astroplan.readthedocs.io/
-* License: BSD-3
-
 .. image:: https://readthedocs.org/projects/astroplan/badge/?version=latest
     :target: https://astroplan.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
@@ -25,10 +19,24 @@ Observation planning package for astronomers
     :target: https://pypi.python.org/pypi/astroplan/
     :alt: Latest release
 
+* Code: https://github.com/astropy/astroplan
+* Docs: https://astroplan.readthedocs.io/
+* License: BSD-3 Clause
+
+**astroplan** is an open-source observation planning package for
+astronomers that can help you plan for everything but the clouds.
+
+It is an `Astropy <http://www.astropy.org>`__
+`affiliated package <http://www.astropy.org/affiliated/index.html>`__ that
+seeks to make your life as an observational astronomer a little less
+infuriating.
+
+Contributions welcome!
+
 Attribution
 +++++++++++
 
-If you use astroplan in your work, please cite `Morris et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018AJ....155..128M/abstract>`_: 
+If you use astroplan in your work, please cite `Morris et al. 2018 <https://ui.adsabs.harvard.edu/abs/2018AJ....155..128M/abstract>`_:
 
 .. code :: bibtex
 

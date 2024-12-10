@@ -20,11 +20,9 @@ Contributions to improve, expand and fix `astroplan` are welcome! As part of the
 `Astropy <https://astropy.org>`__ ecosystem, we recommend the following resources for getting started
 on your first contributions to astroplan:
 
-* `How to make a code contribution <http://astropy.readthedocs.io/en/stable/development/workflow/development_workflow.html>`_
+* `How to make a code contribution <https://docs.astropy.org/en/latest/index_dev.html>`_
 
-* `Comprehensive Coding Guidelines <http://docs.astropy.org/en/latest/development/codeguide.html>`_
-
-* `Astropy Developer Documentation <http://docs.astropy.org/en/latest/#developer-documentation>`_
+* `Comprehensive Coding Guidelines <https://docs.astropy.org/en/latest/development/codeguide.html>`_
 
 .. note::
    `astroplan` is a very young project and we welcome new features. If you are

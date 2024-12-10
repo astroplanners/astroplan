@@ -1,9 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from ..observer import Observer
-from astropy.time import Time
-from astropy.coordinates import EarthLocation
 import astropy.units as u
+from astropy.coordinates import EarthLocation
+from astropy.time import Time
 from numpy.testing import assert_allclose
+
+from astroplan.observer import Observer
 
 
 def test_illumination():

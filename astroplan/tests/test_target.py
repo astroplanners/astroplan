@@ -1,15 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import pytest
-
 # Third-party
 import astropy.units as u
+import pytest
 from astropy.coordinates import SkyCoord, GCRS, ICRS
 from astropy.time import Time
 
 # Package
-from ..target import FixedTarget, get_skycoord
-from ..observer import Observer
+from astroplan.target import FixedTarget, get_skycoord
+from astroplan.observer import Observer
 
 
 @pytest.mark.remote_data

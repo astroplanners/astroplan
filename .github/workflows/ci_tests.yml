@@ -5,12 +5,20 @@
 name: CI Tests
 
 on:
+  schedule:
+    # run every Wednesday at 6am UTC
+    - cron: '0 6 * * 3'
   push:
     branches:
       - main
+    tags:
+    - '*'
   pull_request:
      branches: # only build on PRs against 'main' if you need to further limit when CI is run.
       - main
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,60 +28,42 @@ jobs:
   # Github Actions supports ubuntu, windows, and macos virtual environments:
   # https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners
   ci_tests:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - name: Code style checks
-            os: ubuntu-latest
-            python: 3.x
-            toxenv: codestyle
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    with:
+      submodules: false
+      coverage: ''
+      envs: |
+        - name: Code style checks
+          linux: codestyle
 
-          - name: Python 3.7 with minimal dependencies
-            os: ubuntu-latest
-            python: 3.7
-            toxenv: py37-test
+        - name: Link checks
+          linux: linkcheck
 
-          - name: OS X - Python 3.9 with minimal dependencies
-            os: macos-latest
-            python: 3.9
-            toxenv: py39-test
+        - name: OS X - Python 3.13 with minimal dependencies
+          macos: py313-test
+          runs-on: macos-latest
 
-          - name: Windows - Python 3.11 with all optional dependencies
-            os: windows-latest
-            python: '3.11'
-            toxenv: py11-test-alldeps
-            toxargs: -v
+        - name: Windows - Python 3.11 with all optional dependencies
+          windows: py311-test-alldeps
+          toxargs: -v
 
-          - name: Python 3.11 with remote data, all dependencies, and coverage
-            os: ubuntu-latest
-            python: '3.11'
-            toxenv: py11-test-alldeps-cov
-            toxargs: -v
-            posargs: --remote-data=any
+        - name: Python 3.12 with remote data, all dependencies, and coverage
+          linux: py312-test-alldeps-cov
+          toxargs: -v
+          posargs: --remote-data=any
+          coverage: codecov
 
-          - name: Python 3.11 with latest dev versions of key dependencies
-            os: ubuntu-latest
-            python: '3.11'
-            toxenv: py11-test-devdeps
+        - name: Python 3.11 with oldest version of key dependencies
+          linux: py311-test-oldestdeps
 
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      with:
-        fetch-depth: 0
-    - name: Set up python ${{ matrix.python }} on ${{ matrix.os }}
-      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
-      with:
-        python-version: ${{ matrix.python }}
-    - name: Install base dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install tox codecov
-    - name: Install graphviz dependency
-      if: ${{ contains(matrix.toxenv, 'build_docs') }}
-      run: sudo apt-get -y install graphviz
-    - name: Test with tox
-      run: |
-        python -m tox -e ${{ matrix.toxenv }} ${{ matrix.toxargs }} -- ${{ matrix.posargs }}
+  allowed_failures:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
+    with:
+      submodules: false
+      coverage: ''
+      envs: |
+        - name: (Allowed Failure) Python 3.13 with latest dev versions of key dependencies
+          linux: py313-test-devdeps
+          posargs: --verbose
