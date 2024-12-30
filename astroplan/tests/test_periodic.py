@@ -28,12 +28,14 @@ def test_primary_secondary_eclipse():
 
     ap_primary = es.next_primary_eclipse_time(epoch)
     ap_secondary = es.next_secondary_eclipse_time(epoch)
+    table = es.next_eclipse(epoch)
 
     soln_primary = Time(['2016-01-04 00:00'])
     soln_secondary = Time(['2016-01-02 12:00'])
 
     # Tolerance of 1 second
     assert_allclose([ap_primary.jd, ap_secondary.jd],
+                    [table["time"][0].jd, table["time"][1].jd],
                     [soln_primary.jd, soln_secondary.jd], atol=PRECISION)
 
 

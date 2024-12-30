@@ -232,6 +232,46 @@ class EclipsingSystem(PeriodicEvent):
                          np.arange(n_eclipses) * self.period)
         return eclipse_times
 
+    def next_eclipse(self, time, n_eclipses=1):
+        """
+        Times of the next eclipses after ``time``.
+
+        .. warning::
+            Barycentric offsets are ignored in the current implementation.
+
+        Parameters
+        ----------
+        time : `~astropy.time.Time`
+            Find the next eclipse after ``time``
+        n_eclipses : int (optional)
+            Return the times of eclipse for the next ``n_eclipses`` after
+            ``time``. Default is 1.
+
+        Returns
+        -------
+        table: `~astropy.table.Table`
+            Table of the next ``n_eclipses`` eclipses after ``time``.
+        """
+        from astropy.table import Table
+
+        primary_times = self.next_primary_eclipse_time(time, n_eclipses)
+        secondary_times = self.next_secondary_eclipse_time(time, n_eclipses)
+
+        all_times = np.concatenate([primary_times.jd, secondary_times.jd])
+        all_types = np.concatenate(
+            [np.repeat("P", n_eclipses), np.repeat("S", n_eclipses)]
+        )
+
+        sort_idx = np.argsort(all_times)
+        all_times = all_times[sort_idx]
+        all_types = all_types[sort_idx]
+
+        table = Table()
+        table["time"] = Time(all_times, format="jd")
+        table["type"] = all_types
+
+        return table
+
     def next_primary_ingress_egress_time(self, time, n_eclipses=1):
         """
         Calculate the times of ingress and egress for the next ``n_eclipses``
