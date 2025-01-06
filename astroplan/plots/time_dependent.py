@@ -161,7 +161,7 @@ def plot_airmass(targets, observer, time, ax=None, style_kwargs=None,
         tzname = time.tzname()
         tzinfo = time.tzinfo
     else:
-        tzoffset = 0
+        tzoffset = 0 * u.hour
         tzname = 'UTC'
         tzinfo = None
     # Populate time window if needed.
