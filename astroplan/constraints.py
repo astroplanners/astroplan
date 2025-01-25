@@ -37,7 +37,7 @@ __all__ = ["AltitudeConstraint", "AirmassConstraint", "AtNightConstraint",
 _current_year = time.localtime().tm_year  # needed for backward compatibility
 _current_year_time_range = Time(  # needed for backward compatibility
     [str(_current_year) + '-01-01',
-     str(_current_year) + '-12-31']
+     str(_current_year + 1) + '-01-01']
 )
 
 
@@ -1086,12 +1086,14 @@ def is_event_observable(constraints, observer, target, times=None,
     return constraint_arr
 
 
-def months_observable(constraints, observer, targets,
-                      time_range=_current_year_time_range,
-                      time_grid_resolution=0.5*u.hour):
+def observable_interval(constraints, observer, targets,
+                        time_range=_current_year_time_range,
+                        time_grid_resolution=0.5*u.hour,
+                        interval='months'):
     """
-    Determines which month the specified ``targets`` are observable for a
-    specific ``observer``, given the supplied ``constraints``.
+    Determines which ``intervals`` in ``time_range`` the specified ``targets``
+    are observable for a specific ``observer``,
+    given the supplied ``constraints``.
 
     Parameters
     ----------
@@ -1114,18 +1116,26 @@ def months_observable(constraints, observer, targets,
         linearly-spaced times separated by ``time_resolution``. Default is 0.5
         hours.
 
+    interval : str; ('days','weeks','months') (optional)
+        Defines the interval  of what dates to calculate ``constraints`` on.
+        Default is 'months'.
+
+
     Returns
     -------
-    observable_months : list
-        List of sets of unique integers representing each month that a target is
+    observability : list
+        List of sets of unique integers representing each interval that a target is
         observable, one set per target. These integers are 1-based so that
-        January maps to 1, February maps to 2, etc.
+        January maps to 1, Feburary maps to 2, etc., and it is a similar structure
+        for day and week intervals.
 
     """
     # TODO: This method could be sped up a lot by dropping to the trigonometric
     # altitude calculations.
     if not hasattr(constraints, '__len__'):
         constraints = [constraints]
+    if interval not in ['days', 'weeks', 'months']:
+        raise ValueError('Interval is of an incorrect type. Please choose days, weeks, or months')
 
     times = time_grid_from_range(time_range, time_grid_resolution)
 
@@ -1135,24 +1145,75 @@ def months_observable(constraints, observer, targets,
         [isinstance(constraint, AltitudeConstraint) for constraint in constraints]
     )
     if not altitude_constraint_supplied:
-        message = ("months_observable usually expects an AltitudeConstraint or "
+        message = ("observable_interval usually expects an AltitudeConstraint or "
                    "AirmassConstraint to ensure targets are above horizon.")
         warnings.warn(message, MissingConstraintWarning)
 
-    # TODO: This method could be sped up a lot by dropping to the trigonometric
-    # altitude calculations.
     applied_constraints = [constraint(observer, targets,
                                       times=times,
                                       grid_times_targets=True)
                            for constraint in constraints]
     constraint_arr = np.logical_and.reduce(applied_constraints)
 
-    months_observable = []
-    for target, observable in zip(targets, constraint_arr):
-        s = set([t.datetime.month for t in times[observable]])
-        months_observable.append(s)
+    observability = []
 
-    return months_observable
+    method_dic = {'days': lambda t: t.datetime.timetuple().tm_yday,
+                  'weeks': lambda t: t.datetime.isocalendar()[1],
+                  'months': lambda t: t.datetime.month}
+
+    for target, observable in zip(targets, constraint_arr):
+        if observable.any():
+            s = set([method_dic[interval](t) for t in times[observable]])
+        else:
+            s = {}
+        observability.append(s)
+
+    return observability
+
+
+def months_observable(constraints, observer, targets,
+                      time_range=_current_year_time_range,
+                      time_grid_resolution=0.5*u.hour):
+    """
+    Determines which months in ``time_range`` the specified ``targets``
+    are observable for a specific ``observer``,
+    given the supplied ``constraints``.
+
+    This is an alias of observable_interval(..., interval = 'months')
+    """
+
+    return observable_interval(constraints, observer, targets, time_range,
+                               time_grid_resolution, interval='months')
+
+
+def weeks_observable(constraints, observer, targets,
+                     time_range=_current_year_time_range,
+                     time_grid_resolution=0.5*u.hour):
+    """
+    Determines which weeks in ``time_range`` the specified ``targets``
+    are observable for a specific ``observer``,
+    given the supplied ``constraints``.
+
+    This is an alias of observable_interval(..., interval = 'weeks')
+    """
+
+    return observable_interval(constraints, observer, targets, time_range,
+                               time_grid_resolution, interval='weeks')
+
+
+def days_observable(constraints, observer, targets,
+                    time_range=_current_year_time_range,
+                    time_grid_resolution=0.5*u.hour):
+    """
+    Determines which days in ``time_range`` the specified ``targets``
+    are observable for a specific ``observer``,
+    given the supplied ``constraints``.
+
+    This is an alias of observable_interval(..., interval = 'days')
+    """
+
+    return observable_interval(constraints, observer, targets, time_range,
+                               time_grid_resolution, interval='days')
 
 
 def observability_table(constraints, observer, targets, times=None,
