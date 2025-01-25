@@ -615,7 +615,10 @@ class SequentialScheduler(Scheduler):
         for b in blocks:
             if b.constraints is None:
                 b._all_constraints = self.constraints
+                b.constraints = [AltitudeConstraint(min=0 * u.deg)]
             else:
+                if AltitudeConstraint not in b.constraints:
+                    b.constraints.append(AltitudeConstraint(min=0 * u.deg))
                 b._all_constraints = self.constraints + b.constraints
             # to make sure the scheduler has some constraint to work off of
             # and to prevent scheduling of targets below the horizon
@@ -623,6 +626,9 @@ class SequentialScheduler(Scheduler):
             if b._all_constraints is None:
                 b._all_constraints = [AltitudeConstraint(min=0 * u.deg)]
                 b.constraints = [AltitudeConstraint(min=0 * u.deg)]
+                
+            # If there is no constraint on Altititude, specifically giving an AltitudeConstraint
+            # for the target to be above horizon.
             elif not any(isinstance(c, AltitudeConstraint) for c in b._all_constraints):
                 b._all_constraints.append(AltitudeConstraint(min=0 * u.deg))
                 if b.constraints is None:
