@@ -5,7 +5,7 @@ import sys
 import datetime
 import warnings
 # Third-party
-from astropy.coordinates import (EarthLocation, SkyCoord, AltAz, get_sun,
+from astropy.coordinates import (EarthLocation, SkyCoord, AltAz,
                                  get_body, Angle, Longitude)
 import astropy.units as u
 from astropy.time import Time
@@ -22,6 +22,47 @@ from .target import get_skycoord, SunFlag, MoonFlag
 __all__ = ["Observer"]
 
 MAGIC_TIME = Time(-999, format='jd')
+
+
+def _make_cache_key(times, targets):
+    """
+    Make a unique key to reference this combination of ``times`` and ``targets``.
+
+    Often, we wish to store expensive calculations for a combination of
+    ``targets`` and ``times`` in a cache on an ``observer``` object. This
+    routine will provide an appropriate, hashable, key to store these
+    calculations in a dictionary.
+
+    Parameters
+    ----------
+    times : `~astropy.time.Time`
+        Array of times on which to test the constraint.
+    targets : `~astropy.coordinates.SkyCoord`
+        Target or list of targets.
+
+    Returns
+    -------
+    cache_key : tuple
+        A hashable tuple for use as a cache key
+    """
+    # make a tuple from times
+    try:
+        timekey = tuple(times.ravel().jd) + times.shape
+    except BaseException:        # must be scalar
+        timekey = (times.jd,)
+    # make hashable thing from targets coords
+    try:
+        if hasattr(targets, 'frame'):
+            # treat as a SkyCoord object. Accessing the longitude
+            # attribute of the frame data should be unique and is
+            # quicker than accessing the ra attribute.
+            targkey = tuple(targets.frame.data.lon.value.ravel()) + targets.shape
+        else:
+            # assume targets is a string.
+            targkey = (targets,)
+    except BaseException:
+        targkey = (targets.frame.data.lon,)
+    return timekey + targkey
 
 
 # Handle deprecated MAGIC_TIME variable
@@ -528,6 +569,58 @@ class Observer(object):
                              .format(time.shape, target.shape))
         return time, target
 
+    def get_body(self, body, time, ephemeris=None):
+        """
+        Get a solar system body from `~astropy.coordinates.get_body` for the
+        current observer location. Results are cached to speed up multiple
+        calls for the same body and time.
+
+        Parameters
+        ----------
+        body : str
+            Name of solar system body.
+
+        time : `~astropy.time.Time` or other (see below)
+            The time at which the observation is taking place. Will be used as
+            the ``obstime`` attribute in the resulting frame or coordinate. This
+            will be passed in as the first argument to the `~astropy.time.Time`
+            initializer, so it can be anything that `~astropy.time.Time` will
+            accept (including a `~astropy.time.Time` object)
+
+        ephemeris : str, optional
+            Ephemeris to use.  If not given, use the one set with
+            ``astropy.coordinates.solar_system_ephemeris.set`` (which is
+            set to 'builtin' by default).
+
+        Returns
+        -------
+        `~astropy.coordinates.SkyCoord`
+            The position of the solar system body at the requested time.
+
+        Examples
+        --------
+        >>> from astroplan import Observer
+        >>> from astropy.time import Time
+        >>> from astropy.coordinates import SkyCoord
+        >>> apo = Observer.at_site("APO")
+        >>> time = Time('2001-02-03 04:05:06')
+        >>> target = apo.get_body("sun", time)
+        """
+        if not isinstance(time, Time):
+            time = Time(time)
+
+        _cache_key = _make_cache_key(time, body)
+
+        if not hasattr(self, "_body_cache"):
+            self._body_cache = {}
+
+        if _cache_key not in self._body_cache:
+            self._body_cache[_cache_key] = get_body(
+                body, time, location=self.location, ephemeris=ephemeris
+            )
+
+        return self._body_cache[_cache_key]
+
     def altaz(self, time, target=None, obswl=None, grid_times_targets=False):
         """
         Get an `~astropy.coordinates.AltAz` frame or coordinate.
@@ -589,9 +682,9 @@ class Observer(object):
         """
         if target is not None:
             if target is MoonFlag:
-                target = get_body("moon", time, location=self.location)
+                target = self.get_body("moon", time)
             elif target is SunFlag:
-                target = get_sun(time)
+                target = self.get_body("sun", time)
 
             time, target = self._preprocess_inputs(time, target, grid_times_targets)
 
@@ -1344,7 +1437,7 @@ class Observer(object):
         >>> print("ISO: {0.iso}, JD: {0.jd}".format(sun_rise)) # doctest: +SKIP
         ISO: 2001-02-02 14:02:50.554, JD: 2451943.08531
         """
-        return self.target_rise_time(time, get_sun(time), which, horizon,
+        return self.target_rise_time(time, self.get_body("sun", time), which, horizon,
                                      n_grid_points=n_grid_points)
 
     @u.quantity_input(horizon=u.deg)
@@ -1395,7 +1488,7 @@ class Observer(object):
         >>> print("ISO: {0.iso}, JD: {0.jd}".format(sun_set)) # doctest: +SKIP
         ISO: 2001-02-04 00:35:42.102, JD: 2451944.52479
         """
-        return self.target_set_time(time, get_sun(time), which, horizon,
+        return self.target_set_time(time, self.get_body("sun", time), which, horizon,
                                     n_grid_points=n_grid_points)
 
     def noon(self, time, which='nearest', n_grid_points=150):
@@ -1424,7 +1517,7 @@ class Observer(object):
         `~astropy.time.Time`
             Time at solar noon
         """
-        return self.target_meridian_transit_time(time, get_sun(time), which,
+        return self.target_meridian_transit_time(time, self.get_body("sun", time), which,
                                                  n_grid_points=n_grid_points)
 
     def midnight(self, time, which='nearest', n_grid_points=150):
@@ -1453,7 +1546,7 @@ class Observer(object):
         `~astropy.time.Time`
             Time at solar midnight
         """
-        return self.target_meridian_antitransit_time(time, get_sun(time), which,
+        return self.target_meridian_antitransit_time(time, self.get_body("sun", time), which,
                                                      n_grid_points=n_grid_points)
 
     # Twilight convenience functions
@@ -1810,7 +1903,7 @@ class Observer(object):
         if not isinstance(time, Time):
             time = Time(time)
 
-        moon = get_body("moon", time, location=self.location, ephemeris=ephemeris)
+        moon = self.get_body("moon", time, ephemeris=ephemeris)
         return self.altaz(time, moon)
 
     def sun_altaz(self, time):
@@ -1839,7 +1932,7 @@ class Observer(object):
         if not isinstance(time, Time):
             time = Time(time)
 
-        sun = get_sun(time)
+        sun = self.get_body("sun", time)
         return self.altaz(time, sun)
 
     @u.quantity_input(horizon=u.deg)
@@ -1949,7 +2042,7 @@ class Observer(object):
         if not isinstance(time, Time):
             time = Time(time)
 
-        solar_altitude = self.altaz(time, target=get_sun(time), obswl=obswl).alt
+        solar_altitude = self.altaz(time, target=self.get_body("sun", time), obswl=obswl).alt
 
         if solar_altitude.isscalar:
             return bool(solar_altitude < horizon)
