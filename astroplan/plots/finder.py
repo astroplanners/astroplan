@@ -86,7 +86,7 @@ def plot_finder_image(target, survey='DSS', fov_radius=10*u.arcmin,
     hdu = SkyView.get_images(position=position, coordinates=coordinates,
                              survey=survey, radius=fov_radius, grid=grid)[0][0]
     wcs = WCS(hdu.header)
-
+    grid=grid
     # Set up axes & plot styles if needed.
     if ax is None:
         ax = plt.gcf().add_subplot(projection=wcs)
